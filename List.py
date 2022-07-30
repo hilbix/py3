@@ -121,22 +121,28 @@ class Item:
 	def before(self, item):
 		'put this item before the given item'
 		self.remove()
-		item.__n			= self
-		item.__p			= self.__p
-		(self.__p or self.__l).__n	= item
-		self.__p			= item
-		self.__l.__v			+= 1
+
+		self.__l			= item.__l
+		if self.__l: self.__l.__v	+= 1
+
+		self.__p			= item.__p
+		self.__n			= item
+		(self.__p or self.__l).__n	= self
+		item.__p			= self
+
 		return self
 
 	def after(self, item):
 		'put this item after the given item'
 		self.remove()
+
 		self.__l			= item.__l
-		self.__l.__v			+= 1
-		item.__p			= self
-		item.__n			= self.__n
-		(self.__n or self.__l).__p	= item
-		self.__n			= item
+		if self.__l: self.__l.__v	+= 1
+
+		self.__p			= item
+		self.__n			= item.__n
+		(self.__n or self.__l).__p	= self
+		item.__n			= self
 		return self
 
 	def remove(self):
@@ -153,10 +159,22 @@ class Item:
 		return self
 
 	def destroy(self):
-		'destroy item (freeing memory)'
+		'destroy item (freeing memory), returns value like .get()'
 		self.remove()
 		self.__l	= None
+		v		= self.__v
 		self.__v	= None
+		return v
+
+	def _validate(self):
+		p	= self
+		l	= None
+		while p.__n:
+			n	= p.__n
+			assert n.__p == p
+			p	= n
+			l	= p
+		assert self.__p == l
 
 class List:
 	def __init__(self):
@@ -166,7 +184,7 @@ class List:
 		return self.__i.get()
 
 	def destroy(self):
-		'O(1) destroy the list (and free memort)'
+		'O(1) destroy the list (and free memory)'
 		self.__i.set(None)
 		self.__i	= None
 
@@ -182,18 +200,35 @@ class List:
 	def anyiter(self, reverse=False):
 		return IterAny(self.__i, reverse)
 
-	def append(self, i):
-		pass
+	def push(self, v):
+		'push a value to the end of list, return Item'
+		return Item(v).after(self.__i)
 
-	def prepend(self, i):
-		pass
+	def pop(self, v):
+		'pop a value from the end of list'
+		i	= self.last()
+		return i.destroy() if i else None
+
+	def unshift(self, i):
+		'push a value to the head of list, return Item'
+		return Item(v).before(self.__i)
+
+	def shift(self, i):
+		'pop a value from the head of list'
+		i	= self.first()
+		return i.destroy() if i else None
+
+	def _validate(self):
+		self.__i._validate()
 
 if __name__ == '__main__':
 	x	= List()
-	assert 0 == len(x)
-	x.append(Item('hello'))
-	assert 1 == len(x)
-	x.append(Item('world'))
+	assert 0 == len(x), len(x)
+	x.push('hello')
+	x._validate()
+	print(len(x))
+	assert 1 == len(x), len(x)
+	x.push('world')
 	assert 2 == len(x)
 	for a in x:
 		assert x == a.list()
