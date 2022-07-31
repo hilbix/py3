@@ -1,4 +1,8 @@
 #!/usr/bin/env python3
+#
+# This Works is placed under the terms of the Copyright Less License,
+# see file COPYRIGHT.CLL.  USE AT OWN RISK, ABSOLUTELY NO WARRANTY.
+
 
 '''
 Double Linked List for Python3 (not threadsafe)
@@ -19,9 +23,6 @@ But:
 - O(n) to randomly access items
 
 Note that random access probably can be imroved to O(ld n) with some tweaking on top of this implementation.
-
-This Works is placed under the terms of the Copyright Less License,
-see file COPYRIGHT.CLL.  USE AT OWN RISK, ABSOLUTELY NO WARRANTY.
 '''
 
 debug = None
