@@ -109,37 +109,37 @@ class NextIter(Iter):
 		raise StopIteration
 
 class Generator:
-	pass
+	'''
+	Iterate list in prev direction (generator)
+	'''
+	def __init__(self, klass, *a, **k):
+		self.__c	= klass
+		self.__a	= a
+		self.__k	= k
+
+	def __iter__(self):
+		return self.__c(*self.__a, **self.__k)
 
 class AnyGenerator(Generator):
 	'''
 	Iterate list in prev direction (generator)
 	'''
-	def __init__(self, i):
-		self.__i	= i
-
-	def __iter__(self):
-		return IterPrev(self.__i)
+	def __init__(self, *a, **k):
+		super().__init__(AnyIter, *a, **k)
 
 class PrevGenerator(Generator):
 	'''
 	Iterate list in prev direction (generator)
 	'''
-	def __init__(self, i):
-		self.__i	= i
-
-	def __iter__(self):
-		return IterPrev(self.__i)
+	def __init__(self, *a, **k):
+		super().__init__(PrevIter, *a, **k)
 
 class NextGenerator(Generator):
 	'''
 	Iterate list in prev direction (generator)
 	'''
-	def __init__(self, i):
-		self.__i	= i
-
-	def __iter__(self):
-		return IterNext(self.__i)
+	def __init__(self, *a, **k):
+		super().__init__(NextIter, *a, **k)
 
 class Item:
 	'''
@@ -286,13 +286,13 @@ class List:
 	def _head(self):	return self.__i
 
 	def __iter__(self):
-		return IterNext(self.__i)
+		return NextIter(self.__i)
 
 	def __reversed__(self):
 		return PrevGenerator(self.__i)
 
-	def anyiter(self, reverse=False):
-		return AnyIter(self.__i, reverse)
+	def any(self, reverse=False):
+		return AnyGenerator(self.__i, reverse)
 
 	def push(self, v):
 		'push a value to the end of list, return Item'
