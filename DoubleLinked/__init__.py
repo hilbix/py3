@@ -1,4 +1,4 @@
-#
+#!/usr/bin/env python3
 
 '''
 Double Linked List for Python3 (not threadsafe)
@@ -19,12 +19,32 @@ But:
 - O(n) to randomly access items
 
 Note that random access probably can be imroved to O(ld n) with some tweaking on top of this implementation.
+
+This Works is placed under the terms of the Copyright Less License,
+see file COPYRIGHT.CLL.  USE AT OWN RISK, ABSOLUTELY NO WARRANTY.
 '''
+
+DEBUGN=0
+DEBUGS={}
+def debug(*a):
+	global DEBUGN, DEBUGS
+
+	b=[]
+	for x in a:
+		s	= str(x)
+		t	= s.replace('<__main__.', '').replace(' object at ', ' ')
+		if s != t:
+			if t not in DEBUGS:
+				DEBUGN += 1
+				DEBUGS[t] = f"{{{t.split(' ',1)[0]}{DEBUGN}}}"
+			t=DEBUGS[t]
+		b.append(t.center(7))
+	print(' '.join(b))
 
 class Iter:
 	pass
 
-class IterAny(Iter):
+class AnyIter(Iter):
 	'''
 	Iterate list in any direction
 	'''
@@ -34,10 +54,10 @@ class IterAny(Iter):
 
 	def __next__(self):
 		ret		= self.__p
-		if ret:
+		if ret is not None:
 			ret	= ret.prev() if self.__r else ret.next()
 		self.__p	= ret
-		if ret:
+		if ret is not None:
 			return ret
 		raise StopIteration
 
@@ -56,7 +76,7 @@ class IterAny(Iter):
 	def is_reverse(self):
 		return self.__r
 
-class IterPrev(Iter):
+class PrevIter(Iter):
 	'''
 	Iterate list in prev direction
 	'''
@@ -65,14 +85,14 @@ class IterPrev(Iter):
 
 	def __next__(self):
 		ret		= self.__p
-		if ret:
+		if ret is not None:
 			ret	= ret.prev()
 		self.__p	= ret
-		if ret:
+		if ret is not None:
 			return ret
 		raise StopIteration
 
-class IterNext(Iter):
+class NextIter(Iter):
 	'''
 	Iterate list in next direction
 	'''
@@ -81,22 +101,58 @@ class IterNext(Iter):
 
 	def __next__(self):
 		ret		= self.__p
-		if ret:
+		if ret is not None:
 			ret	= ret.next()
 		self.__p	= ret
-		if ret:
+		if ret is not None:
 			return ret
 		raise StopIteration
+
+class Generator:
+	pass
+
+class AnyGenerator(Generator):
+	'''
+	Iterate list in prev direction (generator)
+	'''
+	def __init__(self, i):
+		self.__i	= i
+
+	def __iter__(self):
+		return IterPrev(self.__i)
+
+class PrevGenerator(Generator):
+	'''
+	Iterate list in prev direction (generator)
+	'''
+	def __init__(self, i):
+		self.__i	= i
+
+	def __iter__(self):
+		return IterPrev(self.__i)
+
+class NextGenerator(Generator):
+	'''
+	Iterate list in prev direction (generator)
+	'''
+	def __init__(self, i):
+		self.__i	= i
+
+	def __iter__(self):
+		return IterNext(self.__i)
 
 class Item:
 	'''
 	keep a list item
 	'''
+	def debug(self, c):
+		debug(self.__l, c, self, self.__p, self.__n, self.__v)
+
 	def __init__(self, v=None, _l=None):
-		self.__l	= _l		# list __l.__l == list
-		self.__v	= v		# val  __l.__v == item count
-		self.__p	= None		# prev __l.__p == list tail
-		self.__n	= None		# next __l.__n == list head
+		self.__l	= _l		# list __l.__l === list
+		self.__v	= v		# val  __l.__v === item count
+		self.__p	= None		# prev __l.__p === list tail
+		self.__n	= None		# next __l.__n === list head
 
 	def get(self):
 		'get item value'
@@ -109,7 +165,7 @@ class Item:
 
 	def list(self):
 		'return the list'
-		return self.__l.__l
+		return self.__l
 
 	def prev(self):
 		'get previous item'
@@ -123,38 +179,48 @@ class Item:
 		self.remove()
 
 		self.__l			= item.__l
-		if self.__l: self.__l.__v	+= 1
+		self.__l._head().__v	+= 1
+#		print('b', self.__l._head().__v)
 
 		self.__p			= item.__p
 		self.__n			= item
 		(self.__p or self.__l).__n	= self
 		item.__p			= self
 
+		self.debug('<')
 		return self
 
 	def after(self, item):
 		'put this item after the given item'
+		item.debug(':')
+
 		self.remove()
 
 		self.__l			= item.__l
-		if self.__l: self.__l.__v	+= 1
+		self.__l._head().__v		+= 1
+#		print('a', self.__l._head().__v)
 
 		self.__p			= item
 		self.__n			= item.__n
 		(self.__n or self.__l).__p	= self
 		item.__n			= self
+
+		self.debug('>')
+		item.debug('=')
 		return self
 
 	def remove(self):
 		'remove item from list.  You can add it again later'
-		if self.__l:
+		self.debug('x')
+		if self.__l is not None:
+			self.__l._head().__v	-= 1
 			# Do not optimize, as this is called for self.__l, too!
 			p			= self.__p
 			n			= self.__n
-			self.__p		= None
-			self.__n		= None
 			(n or self.__l).__p	= p
 			(p or self.__l).__n	= n
+			self.__p		= None
+			self.__n		= None
 		self.__l	= None
 		return self
 
@@ -166,15 +232,42 @@ class Item:
 		self.__v	= None
 		return v
 
-	def _validate(self):
+	def _before(self, item):
+		item.debug('h')
+		self.before(item)
+		if item.__n is None:
+			item.__n	= self
+		self.__n	= None
+		item.debug('H')
+		return self
+
+	def _after(self, item):
+		item.debug('h')
+		self.after(item)
+		if item.__p is None:
+			item.__p	= self
+		self.__p	= None
+		item.debug('H')
+		return self
+
+	def _validate(self, verbose=False):
 		p	= self
 		l	= None
+		cnt	= 0
+		if verbose:
+			self.debug(cnt)
 		while p.__n:
 			n	= p.__n
-			assert n.__p == p
+			if verbose is True:
+				cnt += 1
+				n.debug(cnt)
+			assert n.__p is l
+			assert n.__l is self.__l
 			p	= n
-			l	= p
-		assert self.__p == l
+			l	= n
+		if verbose is True and l is not None:
+			l.debug(-1)
+		assert self.__p is l
 
 class List:
 	def __init__(self):
@@ -190,47 +283,64 @@ class List:
 
 	def first(self):	return self.__i.next()
 	def last(self):		return self.__i.prev()
+	def _head(self):	return self.__i
 
 	def __iter__(self):
 		return IterNext(self.__i)
 
 	def __reversed__(self):
-		return IterPrev(self.__i)
+		return PrevGenerator(self.__i)
 
 	def anyiter(self, reverse=False):
-		return IterAny(self.__i, reverse)
+		return AnyIter(self.__i, reverse)
 
 	def push(self, v):
 		'push a value to the end of list, return Item'
-		return Item(v).after(self.__i)
+		return Item(v)._before(self.__i)
 
 	def pop(self, v):
 		'pop a value from the end of list'
 		i	= self.last()
-		return i.destroy() if i else None
+		return i.destroy() if i is not None else None
 
 	def unshift(self, i):
 		'push a value to the head of list, return Item'
-		return Item(v).before(self.__i)
+		return Item(v)._after(self.__i)
 
 	def shift(self, i):
 		'pop a value from the head of list'
 		i	= self.first()
-		return i.destroy() if i else None
+		return i.destroy() if i is not None else None
 
-	def _validate(self):
-		self.__i._validate()
+	def _validate(self, verbose=False):
+		self.__i._validate(verbose)
 
-if __name__ == '__main__':
+def main():
 	x	= List()
 	assert 0 == len(x), len(x)
+	x._validate(True)
 	x.push('hello')
-	x._validate()
-	print(len(x))
 	assert 1 == len(x), len(x)
-	x.push('world')
+	x._validate(True)
+	x.push(' ')
 	assert 2 == len(x)
+	x._validate(True)
+	x.push('world')
+	assert 3 == len(x)
+	x._validate(True)
 	for a in x:
-		assert x == a.list()
-		print(x.get())
+		assert x is a.list()
+		print(f"[{a.get()}]")
+	x.first().next().remove()
+	assert 2 == len(x)
+	x._validate(True)
+	for a in x:
+		assert x is a.list()
+		print(f"[{a.get()}]")
+	for a in reversed(x):
+		assert x is a.list()
+		print(f"[{a.get()}]")
+
+if __name__ == '__main__':
+	main()
 
