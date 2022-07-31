@@ -76,6 +76,9 @@ class AnyIter(Iter):
 	def is_reverse(self):
 		return self.__r
 
+	def is_forward(self):
+		return not self.__r
+
 class PrevIter(Iter):
 	'''
 	Iterate list in prev direction
@@ -268,6 +271,18 @@ class Item:
 		if verbose is True and l is not None:
 			l.debug(-1)
 		assert self.__p is l
+
+	def __iter__(self):
+		'iterate next, starting with the next element'
+		return NextIter(self)
+
+	def __reversed__(self):
+		'iterate prev, starting with the prev element'
+		return PrevGenerator(self)
+
+	def any(self, reverse=False):
+		'iterate any, starting with the prev element'
+		return AnyGenerator(self, reverse)
 
 class List:
 	def __init__(self):
