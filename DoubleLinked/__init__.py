@@ -24,96 +24,126 @@ This Works is placed under the terms of the Copyright Less License,
 see file COPYRIGHT.CLL.  USE AT OWN RISK, ABSOLUTELY NO WARRANTY.
 '''
 
-DEBUGN=0
-DEBUGS={}
-def debug(*a):
-	global DEBUGN, DEBUGS
+debug = None
 
-	b=[]
-	for x in a:
-		s	= str(x)
-		t	= s.replace('<__main__.', '').replace(' object at ', ' ')
-		if s != t:
-			if t not in DEBUGS:
-				DEBUGN += 1
-				DEBUGS[t] = f"{{{t.split(' ',1)[0]}{DEBUGN}}}"
-			t=DEBUGS[t]
-		b.append(t.center(7))
-	print(' '.join(b))
+def DEBUG(enable=True):
+	global debug
+
+	if enable is False:
+		debug	= lambda *a,**kw: None
+		return debug
+
+	if enable is True:
+		enable	= lambda *s: print(' '.join(s), flush=True)
+
+	import Data
+	_	= Data.Object(N=0,S={})
+
+	def out(*a):
+		b=[]
+		for x in a:
+			s	= str(x)
+			t	= s.replace('<', '').replace(' object at ', ' ')
+			if s != t:
+				if t not in _.S:
+					_.N += 1
+					_.S[t] = f"{{{t.split(' ',1)[0]}{_.N}}}"
+				t=_.S[t]
+			b.append(t.center(22))
+		enable(*b)
+
+	debug = out
+	return debug
+
+DEBUG(False)
 
 class Iter:
-	pass
+	def __init__(self, pos, reverse):
+		self.__p	= pos
+		self.__r	= reverse
+
+	def __next__(self):
+		ret		= self.__p
+		if ret is None:
+			raise StopIteration
+		self.__p	= self._advance(ret)
+		return ret
+
+	def set(self, p):
+		'set the iterator position to another element'
+		self.__p	= p
+
+	def is_reverse(self):
+		'True if it is reverse direction'
+		return self.__r
+
+	def is_forward(self):
+		'True if it is forward direction'
+		return not self.__r
+
 
 class AnyIter(Iter):
 	'''
 	Iterate list in any direction
 	'''
 	def __init__(self, pos, reverse=False):
-		self.__p	= pos
+		super().__init__(pos, reverse)
 		self.__r	= reverse and True or False
 
-	def __next__(self):
-		ret		= self.__p
-		if ret is not None:
-			ret	= ret.prev() if self.__r else ret.next()
-		self.__p	= ret
-		if ret is not None:
-			return ret
-		raise StopIteration
+	def _advance(self, p):
+		return p.prev() if self.__r else p.next()
 
 	def turn(self):
+		'''
+		turn the direction
+
+		This does not affect the next() element.
+		Call .turn().next() to do a turn in-place (this might call StopIteration)
+		'''
 		self.__r	= not self.__r
 		return self
 
 	def forward(self):
+		'''
+		Set forward direction
+
+		This does not affect the next() element.
+		'''
 		self.__r	= False
 		return self
 
 	def reverse(self):
+		'''
+		Set backward direction
+
+		This does not affect the next() element.
+		'''
 		self.__r	= True
 		return self
-
-	def is_reverse(self):
-		return self.__r
-
-	def is_forward(self):
-		return not self.__r
 
 class PrevIter(Iter):
 	'''
 	Iterate list in prev direction
 	'''
 	def __init__(self, pos):
-		self.__p	= pos
+		super().__init__(pos, True)
 
-	def __next__(self):
-		ret		= self.__p
-		if ret is not None:
-			ret	= ret.prev()
-		self.__p	= ret
-		if ret is not None:
-			return ret
-		raise StopIteration
+	def _advance(self, p):
+		return p.prev()
 
 class NextIter(Iter):
 	'''
 	Iterate list in next direction
 	'''
 	def __init__(self, pos):
-		self.__p	= pos
+		super().__init__(pos, False)
 
-	def __next__(self):
-		ret		= self.__p
-		if ret is not None:
-			ret	= ret.next()
-		self.__p	= ret
-		if ret is not None:
-			return ret
-		raise StopIteration
+	def _advance(self, p):
+		return p.next()
 
 class Generator:
 	'''
-	Iterate list in prev direction (generator)
+	Iterate list (generator)
 	'''
 	def __init__(self, klass, *a, **k):
 		self.__c	= klass
@@ -125,7 +155,7 @@ class Generator:
 
 class AnyGenerator(Generator):
 	'''
-	Iterate list in prev direction (generator)
+	Iterate list in any direction (generator)
 	'''
 	def __init__(self, *a, **k):
 		super().__init__(AnyIter, *a, **k)
@@ -139,14 +169,14 @@ class PrevGenerator(Generator):
 
 class NextGenerator(Generator):
 	'''
-	Iterate list in prev direction (generator)
+	Iterate list in next direction (generator)
 	'''
 	def __init__(self, *a, **k):
 		super().__init__(NextIter, *a, **k)
 
 class Item:
 	'''
-	keep a list item
+	A list item
 	'''
 	def debug(self, c):
 		debug(self.__l, c, self, self.__p, self.__n, self.__v)
@@ -253,35 +283,33 @@ class Item:
 		item.debug('H')
 		return self
 
-	def _validate(self, verbose=False):
+	def _validate(self, verbose=None):
+		verbose	= (lambda i,c: i is not None and i.debug(c)) if verbose is True else (verbose or (lambda x: None))
 		p	= self
 		l	= None
 		cnt	= 0
-		if verbose:
-			self.debug(cnt)
+		verbose(self, cnt)
 		while p.__n:
 			n	= p.__n
-			if verbose is True:
-				cnt += 1
-				n.debug(cnt)
+			cnt += 1
+			verbose(n, cnt)
 			assert n.__p is l
 			assert n.__l is self.__l
 			p	= n
 			l	= n
-		if verbose is True and l is not None:
-			l.debug(-1)
+		verbose(l, -1)
 		assert self.__p is l
 
 	def __iter__(self):
-		'iterate next, starting with the next element'
+		'iterate next, starting with the current element'
 		return NextIter(self)
 
 	def __reversed__(self):
-		'iterate prev, starting with the prev element'
+		'iterate prev, starting with the current element'
 		return PrevGenerator(self)
 
 	def any(self, reverse=False):
-		'iterate any, starting with the prev element'
+		'iterate any, starting with the current element'
 		return AnyGenerator(self, reverse)
 
 class List:
@@ -301,13 +329,13 @@ class List:
 	def _head(self):	return self.__i
 
 	def __iter__(self):
-		return NextIter(self.__i)
+		return NextIter(self.__i.next())
 
 	def __reversed__(self):
-		return PrevGenerator(self.__i)
+		return PrevGenerator(self.__i.prev())
 
 	def any(self, reverse=False):
-		return AnyGenerator(self.__i, reverse)
+		return AnyGenerator(self.__i.prev() if reverse else self.__i.next(), reverse)
 
 	def push(self, v):
 		'push a value to the end of list, return Item'
@@ -334,27 +362,40 @@ def main():
 	x	= List()
 	assert 0 == len(x), len(x)
 	x._validate(True)
+
 	x.push('hello')
 	assert 1 == len(x), len(x)
 	x._validate(True)
+
 	x.push(' ')
 	assert 2 == len(x)
 	x._validate(True)
+
 	x.push('world')
 	assert 3 == len(x)
 	x._validate(True)
+
+	v	= []
 	for a in x:
 		assert x is a.list()
-		print(f"[{a.get()}]")
+		v.append(a.get())
+	assert ['hello',' ','world'] == v
+
 	x.first().next().remove()
 	assert 2 == len(x)
 	x._validate(True)
+
+	v	= []
 	for a in x:
 		assert x is a.list()
-		print(f"[{a.get()}]")
+		v.append(a.get())
+	assert ['hello','world'] == v
+
+	v	= []
 	for a in reversed(x):
 		assert x is a.list()
-		print(f"[{a.get()}]")
+		v.append(a.get())
+	assert ['world','hello'] == v
 
 if __name__ == '__main__':
 	main()
